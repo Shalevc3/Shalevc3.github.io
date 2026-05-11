@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cybersecurity Homelab · Shalev Cohen</title>
+  <meta name="description" content="Full homelab cybersecurity environment — Proxmox, pfSense, SOC stack, Active Directory, Docker, Azure hybrid cloud.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:        #0a0a0a;
+      --bg2:       #111111;
+      --bg3:       #191919;
+      --border:    #252525;
+      --text:      #e8e8e8;
+      --muted:     #6b7280;
+      --accent:    #3b82f6;
+      --accent2:   #60a5fa;
+      --accent-dim: rgba(59,130,246,.12);
+      --font:      'DM Sans', sans-serif;
+      --mono:      'JetBrains Mono', monospace;
+      --radius:    14px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; line-height: 1.6; }
+    img { display: block; max-width: 100%; }
+    a { color: var(--accent); text-decoration: none; transition: color .2s; }
+    a:hover { color: var(--accent2); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+    /* NAV */
+    nav {
+      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+      z-index: 100;
+      background: rgba(10,10,10,.85);
+      backdrop-filter: blur(14px) saturate(180%);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      padding: 8px 20px;
+      display: flex; align-items: center; gap: 4px;
+      min-width: min(700px, calc(100vw - 32px));
+      justify-content: space-between;
+    }
+    .nav-brand { font-family: var(--mono); font-size: .85rem; color: var(--accent); white-space: nowrap; }
+    .nav-links { display: flex; gap: 4px; list-style: none; }
+    .nav-links a {
+      font-size: .85rem; color: var(--muted);
+      padding: 5px 14px; border-radius: 99px;
+      transition: background .2s, color .2s;
+    }
+    .nav-links a:hover, .nav-links a.active { background: var(--bg3); color: var(--text); }
+    .nav-back {
+      font-size: .8rem; color: var(--muted);
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 14px; border-radius: 99px;
+      border: 1px solid var(--border);
+      transition: border-color .2s, color .2s;
+    }
+    .nav-back:hover { border-color: var(--accent); color: var(--accent); }
+    .nav-back svg { width: 13px; height: 13px; }
+
+    /* SCROLL PROGRESS */
+    #scroll-progress { position: fixed; top: 0; left: 0; height: 2px; background: var(--accent); z-index: 200; width: 0%; transition: width .1s linear; }
+
+    /* BACK TO TOP */
+    #back-top {
+      position: fixed; bottom: 28px; right: 28px;
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--bg3); border: 1px solid var(--border);
+      color: var(--muted); display: flex; align-items: center; justify-content: center;
+      cursor: pointer; opacity: 0; transform: translateY(10px);
+      transition: opacity .3s, transform .3s, border-color .2s, color .2s; z-index: 100;
+    }
+    #back-top.show { opacity: 1; transform: translateY(0); }
+    #back-top:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* SPOTLIGHT */
+    #spotlight {
+      position: fixed; pointer-events: none; z-index: 0;
+      width: 600px; height: 600px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(59,130,246,.05) 0%, transparent 70%);
+      transform: translate(-50%, -50%); opacity: 0; transition: opacity .4s;
+    }
+    [data-theme="dark"] #spotlight { opacity: 1; }
+
+    /* HERO */
+    #hero {
+      min-height: 60vh; display: flex; align-items: center;
+      padding: 120px 0 60px; position: relative; overflow: hidden;
+    }
+    #hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: radial-gradient(circle, rgba(59,130,246,.14) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+      -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+      pointer-events: none; z-index: 0;
+    }
+    .hero-inner { max-width: 900px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
+    .hero-eyebrow { font-family: var(--mono); font-size: .8rem; color: var(--accent); letter-spacing: .08em; margin-bottom: 16px; }
+    .hero-title { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 700; line-height: 1.1; letter-spacing: -.02em; margin-bottom: 20px; }
+    .hero-title span { color: var(--accent); }
+    .hero-sub { font-size: 1rem; color: var(--muted); line-height: 1.8; max-width: 620px; margin-bottom: 36px; }
+    .hero-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 36px; }
+    .badge {
+      font-family: var(--mono); font-size: .7rem;
+      padding: 4px 12px; border-radius: 99px;
+      border: 1px solid var(--border); color: var(--muted);
+    }
+    .badge.accent { border-color: rgba(59,130,246,.4); color: var(--accent); background: var(--accent-dim); }
+
+    /* SECTIONS */
+    section { padding: 72px 0; }
+    .container { max-width: 900px; margin: 0 auto; padding: 0 32px; }
+    .section-label { font-family: var(--mono); font-size: .72rem; color: var(--accent); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 10px; }
+    .section-title { font-size: clamp(1.4rem, 3vw, 1.9rem); font-weight: 700; letter-spacing: -.02em; margin-bottom: 32px; }
+    .divider { height: 1px; background: var(--border); max-width: 900px; margin: 0 auto; }
+
+    /* OVERVIEW GRID */
+    .overview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 40px; }
+    .overview-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px 22px;
+      display: flex; flex-direction: column; gap: 6px;
+      transition: border-color .2s;
+    }
+    .overview-card:hover { border-color: rgba(59,130,246,.4); }
+    .overview-card-label { font-family: var(--mono); font-size: .65rem; color: var(--accent); letter-spacing: .08em; text-transform: uppercase; }
+    .overview-card-value { font-size: 1.6rem; font-weight: 700; color: var(--text); font-family: var(--mono); }
+    .overview-card-desc { font-size: .8rem; color: var(--muted); }
+
+    /* PROSE */
+    .prose { font-size: .95rem; color: #b0b0b0; line-height: 1.85; }
+    .prose strong { color: var(--text); font-weight: 600; }
+    .prose + .prose { margin-top: 16px; }
+
+    /* COMPONENT BLOCK */
+    .component-block {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+      margin-bottom: 16px;
+      transition: border-color .2s;
+    }
+    .component-block:hover { border-color: rgba(59,130,246,.35); }
+    .component-header {
+      padding: 18px 24px;
+      display: flex; align-items: center; gap: 14px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer; user-select: none;
+    }
+    .component-icon {
+      width: 38px; height: 38px; border-radius: 9px;
+      background: var(--accent-dim); border: 1px solid rgba(59,130,246,.3);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .component-icon svg { width: 18px; height: 18px; color: var(--accent); }
+    .component-header-text { flex: 1; }
+    .component-name { font-size: 1rem; font-weight: 700; color: var(--text); }
+    .component-sub { font-family: var(--mono); font-size: .7rem; color: var(--accent); margin-top: 2px; }
+    .component-chevron { color: var(--muted); transition: transform .25s; }
+    .component-block.open .component-chevron { transform: rotate(180deg); }
+    .component-body { padding: 24px; display: none; }
+    .component-block.open .component-body { display: block; }
+    .component-desc { font-size: .9rem; color: #b0b0b0; line-height: 1.75; margin-bottom: 20px; }
+
+    /* DETAIL TABLE */
+    .detail-table { width: 100%; border-collapse: collapse; font-size: .85rem; margin-bottom: 20px; }
+    .detail-table tr { border-bottom: 1px solid var(--border); }
+    .detail-table tr:last-child { border-bottom: none; }
+    .detail-table td { padding: 9px 0; vertical-align: top; }
+    .detail-table td:first-child { font-family: var(--mono); font-size: .72rem; color: var(--accent); width: 130px; padding-right: 16px; padding-top: 11px; }
+    .detail-table td:last-child { color: var(--muted); }
+
+    /* TAG LIST */
+    .tag-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 4px; }
+    .tag {
+      font-family: var(--mono); font-size: .68rem;
+      padding: 3px 10px; border-radius: 5px;
+      border: 1px solid var(--border); color: var(--muted);
+      transition: border-color .2s, color .2s;
+    }
+    .tag:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* VM TABLE */
+    .vm-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    .vm-table th { font-family: var(--mono); font-size: .65rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; padding: 0 12px 10px 0; text-align: left; }
+    .vm-table td { padding: 8px 12px 8px 0; border-top: 1px solid var(--border); color: var(--muted); vertical-align: top; }
+    .vm-table td:first-child { font-family: var(--mono); font-size: .75rem; color: var(--text); }
+    .vm-table .ip { font-family: var(--mono); font-size: .75rem; color: var(--accent); }
+    .vlan-pill {
+      font-family: var(--mono); font-size: .65rem;
+      padding: 2px 8px; border-radius: 4px; border: 1px solid;
+    }
+    .v1  { border-color: rgba(59,130,246,.5);  color: #60a5fa; }
+    .v10 { border-color: rgba(239,68,68,.5);   color: #f87171; }
+    .v20 { border-color: rgba(168,85,247,.5);  color: #c084fc; }
+    .v30 { border-color: rgba(234,179,8,.5);   color: #facc15; }
+    .v40 { border-color: rgba(249,115,22,.5);  color: #fb923c; }
+
+    /* NETWORK DIAGRAM IMAGE */
+    .diagram-wrap {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      overflow: hidden;
+      margin-bottom: 32px;
+    }
+    .diagram-img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 8px;
+    }
+    [data-theme="light"] .diagram-img {
+      filter: none;
+    }
+    [data-theme="dark"] .diagram-img {
+      filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(1.1);
+    }
+
+    /* NETWORK DIAGRAM (code) */
+    .net-diagram {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 32px; overflow-x: auto;
+    }
+    .net-layer { margin-bottom: 24px; }
+    .net-layer:last-child { margin-bottom: 0; }
+    .net-layer-label { font-family: var(--mono); font-size: .62rem; color: var(--accent); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 10px; }
+    .net-nodes { display: flex; flex-wrap: wrap; gap: 10px; }
+    .net-node {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 16px;
+      display: flex; flex-direction: column; gap: 3px; min-width: 140px;
+      transition: border-color .2s;
+    }
+    .net-node:hover { border-color: var(--accent); }
+    .net-node-name { font-size: .8rem; font-weight: 600; color: var(--text); font-family: var(--mono); }
+    .net-node-ip { font-size: .7rem; color: var(--accent); font-family: var(--mono); }
+    .net-node-role { font-size: .65rem; color: var(--muted); }
+    .net-arrow { text-align: center; color: var(--border); font-size: 1.1rem; margin: 6px 0; font-family: var(--mono); }
+
+    /* FLOW STEPS */
+    .flow { display: flex; flex-direction: column; gap: 0; }
+    .flow-step {
+      display: flex; gap: 20px; align-items: flex-start;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .flow-step:last-child { border-bottom: none; }
+    .flow-num {
+      font-family: var(--mono); font-size: .85rem;
+      color: var(--accent); font-weight: 700;
+      flex-shrink: 0; width: 28px; margin-top: 2px;
+    }
+    .flow-content h4 { font-size: .95rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .flow-content p { font-size: .875rem; color: var(--muted); line-height: 1.7; }
+    .flow-content code {
+      font-family: var(--mono); font-size: .75rem;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 4px; padding: 1px 6px; color: var(--accent2);
+    }
+
+    /* LIGHT MODE */
+    [data-theme="light"] {
+      --bg: #f9f9f7; --bg2: #f0f0ec; --bg3: #e8e8e2;
+      --border: #d8d8d0; --text: #1a1a1a; --muted: #6b7280;
+      --accent: #2563eb; --accent2: #3b82f6;
+      --accent-dim: rgba(37,99,235,.1);
+    }
+    [data-theme="light"] nav { background: rgba(249,249,247,.9); }
+    [data-theme="light"] .prose { color: #444; }
+    [data-theme="light"] .component-desc { color: #444; }
+
+    /* THEME TOGGLE */
+    #theme-toggle {
+      display: flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--bg3); border: 1px solid var(--border);
+      color: var(--muted); cursor: pointer;
+      transition: border-color .2s, color .2s; flex-shrink: 0;
+    }
+    #theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* REVEAL */
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity .5s ease, transform .5s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* FOOTER */
+    footer { padding: 28px 0; border-top: 1px solid var(--border); background: var(--bg); }
+    .footer-inner { max-width: 900px; margin: 0 auto; padding: 0 32px; display: flex; align-items: center; justify-content: space-between; }
+    .footer-copy { font-size: .8rem; color: var(--muted); }
+    .footer-mono { font-family: var(--mono); font-size: .75rem; color: var(--border); }
+
+    /* RESPONSIVE */
+    @media (max-width: 700px) {
+      .overview-grid { grid-template-columns: 1fr 1fr; }
+      .nav-links { display: none; }
+      .footer-mono { display: none; }
+      .container { padding: 0 18px; }
+      .hero-inner { padding: 0 18px; }
+
+      /* VM table → stacked cards on mobile */
+      .vm-table thead { display: none; }
+      .vm-table, .vm-table tbody, .vm-table tr, .vm-table td { display: block; width: 100%; }
+      .vm-table tr {
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin-bottom: 8px;
+        border-top: none;
+      }
+      .vm-table td {
+        padding: 2px 0;
+        border-top: none;
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        font-size: .82rem;
+      }
+      .vm-table td::before {
+        content: attr(data-label);
+        font-family: var(--mono);
+        font-size: .65rem;
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        min-width: 42px;
+        flex-shrink: 0;
+      }
+      .vm-table td:first-child { font-size: .88rem; font-weight: 600; }
+
+      /* detail-table → stacked on mobile */
+      .detail-table, .detail-table tbody, .detail-table tr, .detail-table td { display: block; width: 100%; }
+      .detail-table tr { border-bottom: 1px solid var(--border); padding: 8px 0; }
+      .detail-table tr:last-child { border-bottom: none; }
+      .detail-table td { padding: 2px 0; border: none; }
+      .detail-table td:first-child { width: auto; padding-top: 2px; margin-bottom: 2px; }
+
+      /* nav brand shorter */
+      .nav-brand { font-size: .72rem; }
+      .nav-back { padding: 5px 10px; font-size: .75rem; }
+    }
+    @media (max-width: 460px) {
+      .overview-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="spotlight"></div>
+<div id="scroll-progress"></div>
+
+<!-- Nav -->
+<nav>
+  <span class="nav-brand">shalev@lab:~/homelab$</span>
+  <ul class="nav-links">
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#infrastructure">Infrastructure</a></li>
+    <li><a href="#vlans">VLANs</a></li>
+    <li><a href="#soc">SOC</a></li>
+    <li><a href="#cloud">Cloud</a></li>
+    <li><a href="#access">Access</a></li>
+  </ul>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <a href="index.html" class="nav-back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      Portfolio
+    </a>
+    <button id="theme-toggle" aria-label="Toggle theme">
+      <svg id="theme-icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg id="theme-icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+    </button>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section id="hero">
+  <div class="hero-inner">
+    <div class="reveal">
+      <p class="hero-eyebrow">// Project · Cybersecurity Homelab</p>
+      <h1 class="hero-title">Full-Stack<br><span>Cyber Lab</span></h1>
+      <p class="hero-sub">
+        A production-grade cybersecurity homelab built from scratch — featuring five isolated VLANs, a complete SOC stack, Active Directory infrastructure, vulnerable targets, and a hybrid cloud connection to Azure via IPSec VPN.
+      </p>
+      <div class="hero-badges">
+        <span class="badge accent">Proxmox VE</span>
+        <span class="badge accent">pfSense</span>
+        <span class="badge">Wazuh</span>
+        <span class="badge">SecurityOnion</span>
+        <span class="badge">Active Directory</span>
+        <span class="badge">Docker</span>
+        <span class="badge">Azure</span>
+        <span class="badge">WireGuard</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- Overview -->
+<section id="overview">
+  <div class="container">
+    <p class="section-label reveal">// Overview</p>
+    <h2 class="section-title reveal">What Is This Lab?</h2>
+
+    <div class="overview-grid reveal">
+      <div class="overview-card">
+        <span class="overview-card-label">Virtual Machines</span>
+        <span class="overview-card-value">10</span>
+        <span class="overview-card-desc">Across 5 isolated VLANs</span>
+      </div>
+      <div class="overview-card">
+        <span class="overview-card-label">VLANs</span>
+        <span class="overview-card-value">5</span>
+        <span class="overview-card-desc">SOC · Targets · AD · Containers · Attacker</span>
+      </div>
+      <div class="overview-card">
+        <span class="overview-card-label">SOC Tools</span>
+        <span class="overview-card-value">4</span>
+        <span class="overview-card-desc">Wazuh · SecurityOnion · Nessus · Caldera</span>
+      </div>
+      <div class="overview-card">
+        <span class="overview-card-label">Cloud</span>
+        <span class="overview-card-value">Azure</span>
+        <span class="overview-card-desc">Hybrid IPSec tunnel · Switzerland North</span>
+      </div>
+      <div class="overview-card">
+        <span class="overview-card-label">Remote Access</span>
+        <span class="overview-card-value">VPN</span>
+        <span class="overview-card-desc">WireGuard on UDP 51820</span>
+      </div>
+      <div class="overview-card">
+        <span class="overview-card-label">Web Targets</span>
+        <span class="overview-card-value">3</span>
+        <span class="overview-card-desc">DVWA · bWAPP · WebGoat</span>
+      </div>
+    </div>
+
+    <p class="prose reveal">
+      This lab is a <strong>self-built, fully segmented cybersecurity environment</strong> running on Proxmox VE. The goal is to simulate a realistic enterprise network — complete with an internal SOC, exploitable targets, an Active Directory domain, containerized web apps, and a cloud extension — in order to practice real offensive and defensive security techniques in a controlled setting.
+    </p>
+    <p class="prose reveal" style="margin-top:16px;">
+      Every component is deliberately isolated. <strong>pfSense</strong> acts as the central firewall and router, enforcing strict inter-VLAN firewall rules so that the attacker machine on VLAN 40 can only reach targets it's allowed to reach, while the SOC on VLAN 1 has visibility across the entire environment.
+    </p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- Infrastructure -->
+<section id="infrastructure">
+  <div class="container">
+    <p class="section-label reveal">// Infrastructure</p>
+    <h2 class="section-title reveal">Core Components</h2>
+
+    <!-- Proxmox -->
+    <div class="component-block open reveal">
+      <div class="component-header" onclick="toggle(this)">
+        <div class="component-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        </div>
+        <div class="component-header-text">
+          <div class="component-name">Proxmox VE</div>
+          <div class="component-sub">Hypervisor · 192.168.0.141:8006</div>
+        </div>
+        <svg class="component-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="component-body">
+        <p class="component-desc">Proxmox VE is the foundation of the entire lab. It runs all virtual machines using KVM and provides the VLAN-aware bridge infrastructure that pfSense uses to route traffic between segments.</p>
+        <table class="detail-table">
+          <tr><td>Management</td><td>192.168.0.141 · Port 8006</td></tr>
+          <tr><td>Bridges</td><td><code style="font-family:var(--mono);font-size:.78rem;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 6px;color:var(--accent2)">vmbr0</code> (WAN) &nbsp; <code style="font-family:var(--mono);font-size:.78rem;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 6px;color:var(--accent2)">vmbr1</code> (LAN, VLAN-aware trunk)</td></tr>
+          <tr><td>VMs</td><td>10 virtual machines across all segments</td></tr>
+        </table>
+        <p style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">VM Inventory</p>
+        <table class="vm-table">
+          <thead><tr><th>ID</th><th>Name</th><th>IP</th><th>VLAN</th><th>Role</th></tr></thead>
+          <tbody>
+            <tr><td data-label="ID">101</td><td data-label="Name">pfSense</td><td data-label="IP" class="ip">10.10.1.254</td><td data-label="VLAN"><span class="vlan-pill v1">VLAN 1</span></td><td data-label="Role">Firewall / Gateway</td></tr>
+            <tr><td data-label="ID">102</td><td data-label="Name">Kali</td><td data-label="IP" class="ip">10.10.40.50</td><td data-label="VLAN"><span class="vlan-pill v40">VLAN 40</span></td><td data-label="Role">Attacker workstation</td></tr>
+            <tr><td data-label="ID">103</td><td data-label="Name">Docker-Host</td><td data-label="IP" class="ip">10.10.30.10</td><td data-label="VLAN"><span class="vlan-pill v30">VLAN 30</span></td><td data-label="Role">Container host</td></tr>
+            <tr><td data-label="ID">104</td><td data-label="Name">Metasploitable2</td><td data-label="IP" class="ip">10.10.10.20</td><td data-label="VLAN"><span class="vlan-pill v10">VLAN 10</span></td><td data-label="Role">Vulnerable Linux</td></tr>
+            <tr><td data-label="ID">105</td><td data-label="Name">Wazuh</td><td data-label="IP" class="ip">10.10.1.60</td><td data-label="VLAN"><span class="vlan-pill v1">VLAN 1</span></td><td data-label="Role">SIEM</td></tr>
+            <tr><td data-label="ID">106</td><td data-label="Name">Nessus</td><td data-label="IP" class="ip">10.10.1.70</td><td data-label="VLAN"><span class="vlan-pill v1">VLAN 1</span></td><td data-label="Role">Vulnerability scanner</td></tr>
+            <tr><td data-label="ID">107</td><td data-label="Name">Caldera</td><td data-label="IP" class="ip">10.10.1.80</td><td data-label="VLAN"><span class="vlan-pill v1">VLAN 1</span></td><td data-label="Role">Adversary simulation</td></tr>
+            <tr><td data-label="ID">108</td><td data-label="Name">SecurityOnion</td><td data-label="IP" class="ip">10.10.1.90</td><td data-label="VLAN"><span class="vlan-pill v1">VLAN 1</span></td><td data-label="Role">IDS / NSM</td></tr>
+            <tr><td data-label="ID">109</td><td data-label="Name">DomainController</td><td data-label="IP" class="ip">10.10.20.10</td><td data-label="VLAN"><span class="vlan-pill v20">VLAN 20</span></td><td data-label="Role">Active Directory</td></tr>
+            <tr><td data-label="ID">110</td><td data-label="Name">Win10</td><td data-label="IP" class="ip">10.10.20.50</td><td data-label="VLAN"><span class="vlan-pill v20">VLAN 20</span></td><td data-label="Role">Domain workstation</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- pfSense -->
+    <div class="component-block reveal">
+      <div class="component-header" onclick="toggle(this)">
+        <div class="component-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="component-header-text">
+          <div class="component-name">pfSense</div>
+          <div class="component-sub">Firewall · Router · DHCP · DNS · VPN</div>
+        </div>
+        <svg class="component-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="component-body">
+        <p class="component-desc">pfSense is the nerve center of the lab. It handles all routing between VLANs, enforces firewall rules that keep segments isolated, runs DHCP and DNS for each network, applies NAT toward the WAN, and terminates both the WireGuard VPN (remote access) and the IPSec tunnel to Azure.</p>
+        <table class="detail-table">
+          <tr><td>WAN Interface</td><td>vmbr0 — receives IP from home router (192.168.0.x)</td></tr>
+          <tr><td>LAN Interface</td><td>vmbr1 — VLAN-aware trunk carrying all lab VLANs</td></tr>
+          <tr><td>VLAN Gateways</td><td>10.10.1.254 · 10.10.10.254 · 10.10.20.254 · 10.10.30.254 · 10.10.40.254</td></tr>
+          <tr><td>Services</td><td>DHCP per VLAN · DNS Resolver · NAT → WAN · Firewall rule separation · Logging</td></tr>
+          <tr><td>Segmentation</td><td>No L2 connectivity between VLANs — all inter-VLAN traffic explicitly firewall-permitted</td></tr>
+        </table>
+        <div class="tag-list">
+          <span class="tag">VLAN Routing</span>
+          <span class="tag">Firewall Rules</span>
+          <span class="tag">NAT</span>
+          <span class="tag">DHCP</span>
+          <span class="tag">DNS</span>
+          <span class="tag">WireGuard</span>
+          <span class="tag">IPSec</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- VLANs -->
+<section id="vlans">
+  <div class="container">
+    <p class="section-label reveal">// Network Segmentation</p>
+    <h2 class="section-title reveal">VLAN Architecture</h2>
+
+    <div class="diagram-wrap reveal">
+      <img src="HomeCyberLabNetworkDiagram.drawio.svg" alt="Home Cyber Lab Network Diagram" class="diagram-img">
+    </div>
+
+    <!-- VLAN cards -->
+    <div class="component-block reveal">
+      <div class="component-header" onclick="toggle(this)">
+        <div class="component-icon" style="background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.3);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="component-header-text">
+          <div class="component-name">VLAN 1 — SOC Network</div>
+          <div class="component-sub">10.10.1.0/24 · Gateway 10.10.1.254</div>
+        </div>
+        <svg class="component-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="component-body">
+        <p class="component-desc">The SOC VLAN hosts all security monitoring and detection tools. It is isolated from user and target networks — accessible only through pfSense firewall rules or WireGuard VPN. From here, the SOC has visibility across the entire lab.</p>
+        <table class="detail-table">
+          <tr><td>Wazuh</td><td>10.10.1.60 — SIEM, log aggregation, alert correlation</td></tr>
+          <tr><td>SecurityOnion</td><td>10.10.1.90 — Network IDS, traffic analysis, NSM</td></tr>
+          <tr><td>Nessus</td><td>10.10.1.70:8834 — Vulnerability scanning across all VLANs</td></tr>
+          <tr><td>Caldera</td><td>10.10.1.80 — Adversary simulation, MITRE ATT&CK automation</td></tr>
+          <tr><td>DHCP Range</td><td>10.10.1.50 – 10.10.1.100</td></tr>
+          <tr><td>Access</td><td>WireGuard VPN only — not exposed to Internet</td></tr>
+        </table>
+        <div class="tag-list">
+          <span class="tag">SIEM</span><span class="tag">IDS</span><span class="tag">NSM</span><span class="tag">Vuln Scanner</span><span class="tag">MITRE ATT&CK</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="component-block reveal">
+      <div class="component-header" onclick="toggle(this)">
+        <div class="component-icon" style="background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div class="component-header-text">
+          <div class="component-name">VLAN 10 — Target Network</div>
+          <div class="component-sub">10.10.10.0/24 · Gateway 10.10.10.254</div>
+        </div>
+        <svg class="component-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="component-body">
+        <p class="component-desc">Hosts OS-level vulnerable machines used for exploitation practice. The VLAN is isolated — traffic in and out is strictly controlled by pfSense. Attacks originate from VLAN 40 (Kali), and detections are validated in VLAN 1 (SOC).</p>
+        <table class="detail-table">
+          <tr><td>Metasploitable2</td><td>10.10.10.51 — Intentionally vulnerable Linux VM</td></tr>
+          <tr><td>DHCP Range</td><td>10.10.10.50 – 10.10.10.100</td></tr>
+          <tr><td>Use Cases</td><td>OS exploitation · Privilege escalation · Lateral movement · SOC detection validation</td></tr>
+        </table>
+        <div class="tag-list">
+          <span class="tag">Exploitation</span><span class="tag">Privilege Escalation</span><span class="tag">Lateral Movement</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="component-block reveal">
+      <div class="component-header" onclick="toggle(this)">
+        <div class="component-icon" style="background:rgba(168,85,247,.1);border-color:rgba(168,85,247,.3);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="1.8"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        </div>
+        <div class="component-header-text">
+          <div class="component-name">VLAN 20 — Active Directory</div>
+          <div class="component-sub">10.10.20.0/24 · Gateway 10.10.20.254</div>
+        </div>
+        <svg class="component-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="component-body">
+        <p class="component-desc">A Windows domain environment simulating an internal corporate network. Used for AD-based attack and defense scenarios — from Kerberoasting and Pass-the-Hash to GPO hardening and detection tuning in Wazuh.</p>
+        <table class="detail-table">
+          <tr><td>DomainController</td><td>10.10.20.10 — Windows Server · AD DS · DNS</td></tr>
+          <tr><td>Win10</td><td>10.10.20.100 — Domain-joined workstation</td></tr>
+          <tr><td>DHCP Range</td><td>10.10.20.100 – 10.10.20.120</td></tr>
+          <tr><td>Use Cases</td><td>AD attacks · Identity services · GPO testing · Windows endpoint simulation</td></tr>
+        </table>
+        <div class="tag-list">
+          <span class="tag">Active Directory</span><span class="tag">Kerberos</span><span class="tag">GPO</span><span class="tag">Windows Server</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="component-block reveal">
+      <div class="component-header" onclick="toggle(this)">
+        <div class="component-icon" style="background:rgba(234,179,8,.1);border-color:rgba(234,179,8,.3);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#facc15" stroke-width="1.8"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+        </div>
+        <div class="component-header-text">
+          <div class="component-name">VLAN 30 — Container Network</div>
+          <div class="component-sub">10.10.30.0/24 · Docker MACVLAN</div>
+        </div>
+        <svg class="component-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="component-body">
+        <p class="component-desc">Hosts the Docker infrastructure for vulnerable web applications and incident response platforms. Containers run on a MACVLAN network, giving each one its own IP address within the VLAN. TheHive and Cortex run here for case management and observable enrichment.</p>
+        <table class="detail-table">
+          <tr><td>Docker-Host</td><td>10.10.30.50 — Ubuntu + Portainer + MACVLAN</td></tr>
+          <tr><td>DVWA</td><td>Damn Vulnerable Web App — OWASP Top 10 practice</td></tr>
+          <tr><td>bWAPP</td><td>Buggy Web App — 100+ web vulnerabilities</td></tr>
+          <tr><td>WebGoat</td><td>OWASP WebGoat — Docker-Host:8080</td></tr>
+          <tr><td>TheHive</td><td>10.10.30.50:9000 — Incident response & case management</td></tr>
+          <tr><td>Cortex</td><td>10.10.30.50:9001 — Automated observable analysis & enrichment</td></tr>
+          <tr><td>IP Allocation</td><td>10.10.30.129 – 10.10.30.158 (containers)</td></tr>
+        </table>
+        <div class="tag-list">
+          <span class="tag">Docker</span><span class="tag">MACVLAN</span><span class="tag">DVWA</span><span class="tag">bWAPP</span><span class="tag">WebGoat</span><span class="tag">TheHive</span><span class="tag">Cortex</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="component-block reveal">
+      <div class="component-header" onclick="toggle(this)">
+        <div class="component-icon" style="background:rgba(249,115,22,.1);border-color:rgba(249,115,22,.3);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+        </div>
+        <div class="component-header-text">
+          <div class="component-name">VLAN 40 — Attacker Network</div>
+          <div class="component-sub">10.10.40.0/24 · Gateway 10.10.40.254</div>
+        </div>
+        <svg class="component-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="component-body">
+        <p class="component-desc">A dedicated offensive segment, isolated from all other VLANs. Kali Linux lives here and is used to launch controlled attacks against targets in VLAN 10, VLAN 20, and VLAN 30. pfSense firewall rules determine exactly what Kali can reach — making this a safe, controlled red-team environment.</p>
+        <table class="detail-table">
+          <tr><td>Kali Linux</td><td>10.10.40.50 — Full offensive toolkit</td></tr>
+          <tr><td>DHCP Range</td><td>10.10.40.50 – 10.10.40.100</td></tr>
+          <tr><td>Use Cases</td><td>Exploitation · Adversary simulation · SOC detection testing · Red-team scenarios</td></tr>
+        </table>
+        <div class="tag-list">
+          <span class="tag">Kali Linux</span><span class="tag">Metasploit</span><span class="tag">Red Team</span><span class="tag">Controlled Attacks</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SOC -->
+<section id="soc">
+  <div class="container">
+    <p class="section-label reveal">// Security Operations</p>
+    <h2 class="section-title reveal">SOC Stack</h2>
+
+    <p class="prose reveal" style="margin-bottom:32px;">
+      The SOC stack on VLAN 1 provides end-to-end visibility across the lab. Logs flow from every segment into Wazuh, SecurityOnion captures traffic at the network level, Nessus scans for vulnerabilities, and Caldera automates adversary simulations — creating a full detect-and-respond loop.
+    </p>
+
+    <div class="flow reveal">
+      <div class="flow-step">
+        <span class="flow-num">01</span>
+        <div class="flow-content">
+          <h4>Wazuh — SIEM & Log Aggregation</h4>
+          <p>Collects logs from all VMs via agents and syslog. Correlates events, generates alerts, and provides a central dashboard for security monitoring. Running at <code>10.10.1.60</code>.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">02</span>
+        <div class="flow-content">
+          <h4>SecurityOnion — Network IDS / NSM</h4>
+          <p>Monitors network traffic across VLANs. Detects anomalies, intrusion attempts, and lateral movement at the packet level. Complements Wazuh's host-based view with full network visibility. Running at <code>10.10.1.90</code>.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">03</span>
+        <div class="flow-content">
+          <h4>Nessus — Vulnerability Scanner</h4>
+          <p>Scans all lab segments for known vulnerabilities, misconfigurations, and exposed services. Results are used to prioritize hardening and to verify that Wazuh detects the expected findings. Running at <code>10.10.1.70:8834</code>.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">04</span>
+        <div class="flow-content">
+          <h4>Caldera — Adversary Simulation</h4>
+          <p>Automates MITRE ATT&CK-mapped attack chains against lab targets. Used to test whether the SOC (Wazuh + SecurityOnion) correctly detects and alerts on known TTP patterns. Running at <code>10.10.1.80</code>.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">05</span>
+        <div class="flow-content">
+          <h4>TheHive + Cortex — Incident Response</h4>
+          <p>TheHive manages cases and investigations triggered by Wazuh alerts. Cortex automatically enriches observables (IPs, hashes, domains) with threat intelligence. Together they simulate a real SOC triage and investigation workflow. Running at <code>10.10.30.50:9000/9001</code>.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- Cloud -->
+<section id="cloud">
+  <div class="container">
+    <p class="section-label reveal">// Hybrid Cloud</p>
+    <h2 class="section-title reveal">Azure Integration</h2>
+
+    <p class="prose reveal" style="margin-bottom:32px;">
+      The lab extends into Azure via a <strong>site-to-site IPSec / IKEv2 VPN</strong> between pfSense and the Azure VPN Gateway. This creates a true hybrid environment where Azure VMs can communicate directly with on-premises lab segments — enabling cloud attack simulation, pivot testing, and hybrid SOC scenarios.
+    </p>
+
+    <div class="component-block open reveal">
+      <div class="component-header" onclick="toggle(this)">
+        <div class="component-icon" style="background:rgba(20,184,166,.1);border-color:rgba(20,184,166,.3);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div class="component-header-text">
+          <div class="component-name">Azure VNet — lab-vnet-01</div>
+          <div class="component-sub">Switzerland North · 10.30.0.0/16</div>
+        </div>
+        <svg class="component-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="component-body">
+        <table class="detail-table">
+          <tr><td>VNet</td><td>lab-vnet-01 · 10.30.0.0/16 · Switzerland North</td></tr>
+          <tr><td>Default Subnet</td><td>10.30.1.0/24</td></tr>
+          <tr><td>VPN Gateway</td><td>vnet-gateway-lab · VpnGw1AZ · Route-Based · IKEv2</td></tr>
+          <tr><td>On-Prem Endpoint</td><td>lab-local-network-gateway · pfSense WAN (s3l3ct.ddns.net)</td></tr>
+          <tr><td>Advertised Routes</td><td>10.10.1.0/24 · 10.10.10.0/24 · 10.10.20.0/24 · 10.10.30.0/24</td></tr>
+          <tr><td>Azure VM</td><td>testvm · 10.30.1.x · Sandbox / connectivity testing</td></tr>
+          <tr><td>Security</td><td>No public inbound — NSG allows RDP/SSH only as needed</td></tr>
+        </table>
+        <p style="font-size:.85rem;color:var(--muted);margin-top:16px;line-height:1.7;">
+          The Azure VM can reach Wazuh, SecurityOnion, AD, and target machines through the IPSec tunnel — enabling cloud malware sandboxing, remote attack simulation, and extending the SOC into the cloud.
+        </p>
+        <div class="tag-list" style="margin-top:12px;">
+          <span class="tag">IPSec</span><span class="tag">IKEv2</span><span class="tag">Azure VPN Gateway</span><span class="tag">Hybrid SOC</span><span class="tag">Cloud Sandbox</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- Remote Access -->
+<section id="access">
+  <div class="container">
+    <p class="section-label reveal">// Remote Access</p>
+    <h2 class="section-title reveal">WireGuard VPN</h2>
+
+    <p class="prose reveal" style="margin-bottom:32px;">
+      Remote access to the entire lab is handled by a <strong>WireGuard</strong> tunnel terminating on pfSense. Once connected, the client has access to all VLANs and the Proxmox management interface — just like being on the local network.
+    </p>
+
+    <div class="component-block open reveal">
+      <div class="component-header" onclick="toggle(this)">
+        <div class="component-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+        </div>
+        <div class="component-header-text">
+          <div class="component-name">WireGuard Tunnel</div>
+          <div class="component-sub">tun_wg0 · UDP 51820 · s3l3ct.ddns.net</div>
+        </div>
+        <svg class="component-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="component-body">
+        <table class="detail-table">
+          <tr><td>Interface</td><td>tun_wg0 (Home Lab Tunnel Net)</td></tr>
+          <tr><td>Listen Port</td><td>UDP 51820</td></tr>
+          <tr><td>Server Address</td><td>10.104.104.1/24</td></tr>
+          <tr><td>DDNS</td><td>s3l3ct.ddns.net</td></tr>
+          <tr><td>Peer — PC</td><td>10.104.104.2/32 · Full lab access</td></tr>
+          <tr><td>Peer — iPhone</td><td>10.104.104.3/32 · Full lab access</td></tr>
+          <tr><td>Allowed IPs</td><td>10.10.1.0/24 · 10.10.10.0/24 · 10.10.20.0/24 · 10.10.30.0/24 · 10.104.104.0/24 · 192.168.0.141/24</td></tr>
+          <tr><td>Firewall</td><td>Allow UDP/51820 on WAN · WireGuard interface → Any (lab usage)</td></tr>
+        </table>
+        <div class="tag-list" style="margin-top:4px;">
+          <span class="tag">WireGuard</span><span class="tag">Key-pair Auth</span><span class="tag">DDNS</span><span class="tag">Full Lab Access</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-inner">
+    <span class="footer-copy"><a href="index.html" style="color:var(--muted);">← Back to Portfolio</a> &nbsp;·&nbsp; Shalev Cohen © 2026</span>
+    <span class="footer-mono">Built with ♥ in Israel</span>
+  </div>
+</footer>
+
+<button id="back-top" aria-label="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 15l-6-6-6 6"/></svg>
+</button>
+
+<script>
+// Scroll progress
+const prog = document.getElementById('scroll-progress');
+window.addEventListener('scroll', () => {
+  const pct = window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100;
+  prog.style.width = pct + '%';
+}, { passive: true });
+
+// Back to top
+const btt = document.getElementById('back-top');
+window.addEventListener('scroll', () => { btt.classList.toggle('show', window.scrollY > 400); }, { passive: true });
+
+// Reveal
+const reveals = document.querySelectorAll('.reveal');
+const ro = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); ro.unobserve(e.target); } });
+}, { threshold: 0.08 });
+reveals.forEach(el => ro.observe(el));
+
+// Active nav
+const navLinks = document.querySelectorAll('.nav-links a[href^="#"]');
+const sections = Array.from(navLinks).map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+window.addEventListener('scroll', () => {
+  const pos = window.scrollY + 140;
+  let cur = sections[0].id;
+  sections.forEach(s => { if (pos >= s.offsetTop) cur = s.id; });
+  navLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + cur));
+}, { passive: true });
+
+// Accordion
+function toggle(header) {
+  const block = header.closest('.component-block');
+  block.classList.toggle('open');
+}
+
+// Theme toggle
+(function() {
+  const html = document.documentElement;
+  const btn = document.getElementById('theme-toggle');
+  const sun = document.getElementById('theme-icon-sun');
+  const moon = document.getElementById('theme-icon-moon');
+  const saved = localStorage.getItem('theme') || 'dark';
+  function apply(theme) {
+    html.setAttribute('data-theme', theme);
+    sun.style.display  = theme === 'dark' ? 'none' : 'block';
+    moon.style.display = theme === 'dark' ? 'block' : 'none';
+    localStorage.setItem('theme', theme);
+  }
+  apply(saved);
+  btn.addEventListener('click', () => apply(html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
+})();
+
+// Mouse spotlight
+(function() {
+  const el = document.getElementById('spotlight');
+  window.addEventListener('mousemove', e => {
+    el.style.left = e.clientX + 'px';
+    el.style.top  = e.clientY + 'px';
+  }, { passive: true });
+})();
+</script>
+</body>
+</html>
